@@ -16,7 +16,7 @@ It auto-generates tokens on the backend and only shows host/join links on the fr
 ## 2) Clone & Install
 ```bash
 cd ~
-git clone <your-fork-or-copy> zoom-meeting-tester
+git clone https://github.com/anuragstark/Zoom_Meeting-Tester.git
 cd zoom-meeting-tester
 npm install
 ```
@@ -52,7 +52,7 @@ Open `http://localhost:3000`.
 
 ## 6) Docker
 
-### Build and run (production)
+### Build and run (production) - Just For Practice
 ```bash
 cd ~/zoom-meeting-tester
 docker compose --profile prod up --build -d
@@ -78,4 +78,8 @@ The dev service mounts your local folder and runs nodemon.
 
 ---
 
-Developed by Anurag Stark — if you need help, feel free to ask: anuragchauhan536@gmail.com
+## 🙏 Acknowledgments
+- **Docker** - For containerization technology
+---
+
+**Made with ❤️ in the  Anurag Stark**
