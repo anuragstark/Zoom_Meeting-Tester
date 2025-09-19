@@ -1,0 +1,203 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zoom Meeting Tester</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; padding: 24px; max-width: 900px; margin: auto; }
+      .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+      label { display: block; font-weight: 600; margin-top: 8px; }
+      input { width: 100%; padding: 8px; margin-top: 4px; }
+      button { margin-top: 12px; padding: 10px 16px; }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      a { word-break: break-all; }
+      .links { margin-top: 8px; }
+      .hint { color: #666; font-size: 12px; }
+      .success { color: #0a7a28; }
+      .error { color: #a00; }
+    </style>
+  </head>
+  <body>
+    <h1>Zoom Meeting Tester</h1>
+    <div class="card">
+      <div class="row" style="grid-template-columns: auto auto auto; align-items:center;">
+        <button id="tab_s2s">S2S</button>
+        <button id="tab_oauth">OAuth</button>
+        <button id="tab_logs">Logs</button>
+      </div>
+    </div>
+
+    <div class="card" id="card_s2s">
+      <h2>Server-to-Server OAuth</h2>
+      <div class="row">
+        <div>
+          <label>Client ID</label>
+          <input id="s2s_client_id" placeholder="ZOOM_S2S_CLIENT_ID" />
+        </div>
+        <div>
+          <label>Client Secret</label>
+          <input id="s2s_client_secret" placeholder="ZOOM_S2S_CLIENT_SECRET" />
+        </div>
+      </div>
+      <label>Account ID</label>
+      <input id="s2s_account_id" placeholder="ZOOM_S2S_ACCOUNT_ID" />
+
+      <div class="row">
+        <div>
+          <label>Topic</label>
+          <input id="s2s_topic" value="Test Meeting" />
+        </div>
+        <div>
+          <label>Duration (minutes)</label>
+          <input id="s2s_duration" type="number" value="30" />
+        </div>
+      </div>
+      <button id="s2s_create">Create Meeting (S2S)</button>
+      <div id="s2s_result" class="links"></div>
+    </div>
+
+    <div class="card" id="card_oauth">
+      <h2>OAuth App (Authorization Code)</h2>
+      <div class="row">
+        <div>
+          <label>Client ID</label>
+          <input id="oauth_client_id" placeholder="ZOOM_OAUTH_CLIENT_ID" />
+        </div>
+        <div>
+          <label>Client Secret</label>
+          <input id="oauth_client_secret" placeholder="ZOOM_OAUTH_CLIENT_SECRET" />
+        </div>
+      </div>
+      <label>Redirect URI</label>
+      <input id="oauth_redirect_uri" placeholder="e.g. http://localhost:3000/auth/callback" />
+      <label>Scope</label>
+      <input id="oauth_scope" value="meeting:write" />
+
+      <button id="oauth_login">Login with Zoom</button>
+      <div class="hint">After login, you'll return here. Then click "Create Meeting (OAuth)".</div>
+
+      <div class="row">
+        <div>
+          <label>Topic</label>
+          <input id="oauth_topic" value="Test Meeting" />
+        </div>
+        <div>
+          <label>Duration (minutes)</label>
+          <input id="oauth_duration" type="number" value="30" />
+        </div>
+      </div>
+      <button id="oauth_create">Create Meeting (OAuth)</button>
+      <div id="oauth_result" class="links"></div>
+    </div>
+
+    <div class="card" id="card_logs" style="display:none;">
+      <h2>Logs</h2>
+      <div>
+        <button id="logs_refresh">Refresh</button>
+        <button id="logs_clear">Clear</button>
+        <span class="hint">Live stream enabled</span>
+      </div>
+      <pre id="logs_view" style="white-space: pre-wrap; background:#f8f8f8; padding:12px; height:300px; overflow:auto; margin-top:12px;"></pre>
+    </div>
+
+    <script>
+      function el(id) { return document.getElementById(id); }
+      function linkify(url, text) { return `<div><a href="${url}" target="_blank" rel="noopener">${text}</a></div>`; }
+      function showTab(which) {
+        el('card_s2s').style.display = which === 's2s' ? '' : 'none';
+        el('card_oauth').style.display = which === 'oauth' ? '' : 'none';
+        el('card_logs').style.display = which === 'logs' ? '' : 'none';
+      }
+      el('tab_s2s').onclick = () => showTab('s2s');
+      el('tab_oauth').onclick = () => showTab('oauth');
+      el('tab_logs').onclick = () => showTab('logs');
+
+      // Logs UI
+      const logsView = () => el('logs_view');
+      async function fetchLogs() {
+        try {
+          const r = await fetch('/api/logs');
+          const j = await r.json();
+          renderLogs(j.logs || []);
+        } catch (e) {}
+      }
+      function renderLogs(entries) {
+        const text = entries.map(x => `[${x.time}] ${x.level.toUpperCase()} ${x.message}`).join('\n');
+        logsView().textContent = text;
+        logsView().scrollTop = logsView().scrollHeight;
+      }
+      async function clearLogs() {
+        await fetch('/api/logs/clear', { method: 'POST' });
+        logsView().textContent = '';
+      }
+      el('logs_refresh').onclick = fetchLogs;
+      el('logs_clear').onclick = clearLogs;
+      // Start SSE stream
+      try {
+        const evt = new EventSource('/api/logs/stream');
+        evt.onmessage = (ev) => {
+          try {
+            const entry = JSON.parse(ev.data);
+            const line = `[${entry.time}] ${entry.level.toUpperCase()} ${entry.message}`;
+            logsView().textContent += (logsView().textContent ? '\n' : '') + line;
+            logsView().scrollTop = logsView().scrollHeight;
+          } catch(_){ }
+        };
+      } catch (_) {}
+
+      el('s2s_create').onclick = async () => {
+        const body = {
+          clientId: el('s2s_client_id').value.trim() || undefined,
+          clientSecret: el('s2s_client_secret').value.trim() || undefined,
+          accountId: el('s2s_account_id').value.trim() || undefined,
+          topic: el('s2s_topic').value,
+          duration: Number(el('s2s_duration').value || 30)
+        };
+        el('s2s_result').textContent = 'Creating...';
+        try {
+          const resp = await fetch('/api/s2s/meetings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          const data = await resp.json();
+          if (!resp.ok) throw data;
+          el('s2s_result').innerHTML = `<div class=\"success\">Created meeting ${'${'}data.meeting_id${'}'}</div>` + linkify(data.host_link, 'Host link') + linkify(data.join_link, 'Join link');
+        } catch (e) {
+          el('s2s_result').innerHTML = `<div class=\"error\">Error: ${'${'}e.error || e.details || e${'}'}</div>`;
+        }
+      };
+
+      
+      el('oauth_login').onclick = () => {
+        const clientId = el('oauth_client_id').value.trim();
+        const clientSecret = el('oauth_client_secret').value.trim();
+        const redirectUri = el('oauth_redirect_uri').value.trim();
+        const scope = el('oauth_scope').value.trim();
+
+        const params = new URLSearchParams();
+        if (clientId) params.set('client_id', clientId);
+        if (clientSecret) params.set('client_secret', clientSecret);
+        if (redirectUri) params.set('redirect_uri', redirectUri);
+        if (scope) params.set('scope', scope);
+
+        const qs = params.toString();
+        window.location.href = qs ? `/auth/login?${qs}` : '/auth/login';
+      };
+
+
+      el('oauth_create').onclick = async () => {
+        el('oauth_result').textContent = 'Creating...';
+        try {
+          const body = {
+            topic: el('oauth_topic').value,
+            duration: Number(el('oauth_duration').value || 30)
+          };
+          const resp = await fetch('/api/oauth/meetings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          const data = await resp.json();
+          if (!resp.ok) throw data;
+          el('oauth_result').innerHTML = `<div class=\"success\">Created meeting ${'${'}data.meeting_id${'}'}</div>` + linkify(data.host_link, 'Host link') + linkify(data.join_link, 'Join link');
+        } catch (e) {
+          el('oauth_result').innerHTML = `<div class=\"error\">Error: ${'${'}e.error || e.details || e${'}'}</div>`;
+        }
+      };
+    </script>
+  </body>
+</html>
