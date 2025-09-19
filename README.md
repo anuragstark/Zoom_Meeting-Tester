@@ -80,6 +80,17 @@ The dev service mounts your local folder and runs nodemon.
 
 ## 🙏 Acknowledgments
 - **Docker** - For containerization technology
+
 ---
 
-**Made with ❤️ in the  Anurag Stark**
+### 🙌 Contributing
+Contributions, issues, and feature requests are welcome!  
+Feel free to fork this repository and submit a pull request.
+
+### 💡 Support
+If you find this project useful, consider giving it a ⭐ on GitHub to show your support.
+
+---
+Crafted with passion ❤️ by [Anurag Stark](https://www.linkedin.com/in/anuragstark/)  
+📧 [E-mail](mailto:Anuragchauhan536@gmail.com)
+
